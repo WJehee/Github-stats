@@ -311,9 +311,8 @@ Languages:
 
             contrib_repos = viewer.get("repositoriesContributedTo", {})
             owned_repos = viewer.get("repositories", {})
-            issuesO = viewer.get("openIssues", 0)
-            issuesC = viewer.get("closedIssues", 0)
-            print(issuesC)
+            issuesO = viewer.get("openIssues", {}).get("totalCount", 0)
+            issuesC = viewer.get("closedIssues", {}).get("totalCount", 0)
             self._issues = cast(int, issuesC) + cast(int, issuesO)
             # self._prs = cast(int, viewer.get("pullRequests").get(0))
 
