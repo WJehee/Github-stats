@@ -89,7 +89,6 @@ class Queries(object):
                         params=tuple(params.items()),
                     )
                 if r_async.status == 202:
-                    # print(f"{path} returned 202. Retrying...")
                     print(f"A path returned 202. Retrying...")
                     await asyncio.sleep(2)
                     continue
@@ -112,7 +111,6 @@ class Queries(object):
                         continue
                     elif r_requests.status_code == 200:
                         return r_requests.json()
-        # print(f"There were too many 202s. Data for {path} will be incomplete.")
         print("There were too many 202s. Data for this repository will be incomplete.")
         return dict()
 
@@ -142,10 +140,6 @@ class Queries(object):
       }}
       nodes {{
         nameWithOwner
-        stargazers {{
-          totalCount
-        }}
-        forkCount
         languages(first: 10, orderBy: {{field: SIZE, direction: DESC}}) {{
           edges {{
             size
@@ -178,10 +172,6 @@ class Queries(object):
       }}
       nodes {{
         nameWithOwner
-        stargazers {{
-          totalCount
-        }}
-        forkCount
         languages(first: 10, orderBy: {{field: SIZE, direction: DESC}}) {{
           edges {{
             size
@@ -266,13 +256,9 @@ class Stats(object):
         self.queries = Queries(username, access_token, session)
 
         self._name: Optional[str] = None
-        self._stargazers: Optional[int] = None
-        self._forks: Optional[int] = None
         self._total_contributions: Optional[int] = None
         self._languages: Optional[Dict[str, Any]] = None
         self._repos: Optional[Set[str]] = None
-        self._lines_changed: Optional[Tuple[int, int]] = None
-        self._views: Optional[int] = None
 
     async def to_str(self) -> str:
         """
@@ -282,16 +268,9 @@ class Stats(object):
         formatted_languages = "\n  - ".join(
             [f"{k}: {v:0.4f}%" for k, v in languages.items()]
         )
-        lines_changed = await self.lines_changed
         return f"""Name: {await self.name}
-Stargazers: {await self.stargazers:,}
-Forks: {await self.forks:,}
 All-time contributions: {await self.total_contributions:,}
 Repositories with contributions: {len(await self.repos)}
-Lines of code added: {lines_changed[0]:,}
-Lines of code deleted: {lines_changed[1]:,}
-Lines of code changed: {lines_changed[0] + lines_changed[1]:,}
-Project page views: {await self.views:,}
 Languages:
   - {formatted_languages}"""
 
@@ -299,8 +278,6 @@ Languages:
         """
         Get lots of summary statistics using one big query. Sets many attributes
         """
-        self._stargazers = 0
-        self._forks = 0
         self._languages = dict()
         self._repos = set()
 
@@ -344,8 +321,6 @@ Languages:
                 if name in self._repos or name in self._exclude_repos:
                     continue
                 self._repos.add(name)
-                self._stargazers += repo.get("stargazers").get("totalCount", 0)
-                self._forks += repo.get("forkCount", 0)
 
                 for lang in repo.get("languages", {}).get("edges", []):
                     name = lang.get("node", {}).get("name", "Other")
@@ -390,28 +365,6 @@ Languages:
         await self.get_stats()
         assert self._name is not None
         return self._name
-
-    @property
-    async def stargazers(self) -> int:
-        """
-        :return: total number of stargazers on user's repos
-        """
-        if self._stargazers is not None:
-            return self._stargazers
-        await self.get_stats()
-        assert self._stargazers is not None
-        return self._stargazers
-
-    @property
-    async def forks(self) -> int:
-        """
-        :return: total number of forks on user's repos
-        """
-        if self._forks is not None:
-            return self._forks
-        await self.get_stats()
-        assert self._forks is not None
-        return self._forks
 
     @property
     async def languages(self) -> Dict:
@@ -473,53 +426,6 @@ Languages:
                 "totalContributions", 0
             )
         return cast(int, self._total_contributions)
-
-    @property
-    async def lines_changed(self) -> Tuple[int, int]:
-        """
-        :return: count of total lines added, removed, or modified by the user
-        """
-        if self._lines_changed is not None:
-            return self._lines_changed
-        additions = 0
-        deletions = 0
-        for repo in await self.repos:
-            r = await self.queries.query_rest(f"/repos/{repo}/stats/contributors")
-            for author_obj in r:
-                # Handle malformed response from the API by skipping this repo
-                if not isinstance(author_obj, dict) or not isinstance(
-                    author_obj.get("author", {}), dict
-                ):
-                    continue
-                author = author_obj.get("author", {}).get("login", "")
-                if author != self.username:
-                    continue
-
-                for week in author_obj.get("weeks", []):
-                    additions += week.get("a", 0)
-                    deletions += week.get("d", 0)
-
-        self._lines_changed = (additions, deletions)
-        return self._lines_changed
-
-    @property
-    async def views(self) -> int:
-        """
-        Note: only returns views for the last 14 days (as-per GitHub API)
-        :return: total number of page views the user's projects have received
-        """
-        if self._views is not None:
-            return self._views
-
-        total = 0
-        for repo in await self.repos:
-            r = await self.queries.query_rest(f"/repos/{repo}/traffic/views")
-            for view in r.get("views", []):
-                total += view.get("count", 0)
-
-        self._views = total
-        return total
-
 
 ###############################################################################
 # Main Function
