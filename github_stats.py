@@ -311,10 +311,10 @@ Languages:
 
             contrib_repos = viewer.get("repositoriesContributedTo", {})
             owned_repos = viewer.get("repositories", {})
-            issuesO = viewer.get("openIssues")
-            issuesC = viewer.get("closedIssues")
+            issuesO = viewer.get("openIssues", 0)
+            issuesC = viewer.get("closedIssues", 0)
             self._issues = cast(int, issuesC) + cast(int, issuesO)
-            self._prs = cast(int, viewer.get("pullRequests"))
+            # self._prs = cast(int, viewer.get("pullRequests").get(0))
 
             repos = owned_repos.get("nodes", [])
             if not self._ignore_forked_repos:
