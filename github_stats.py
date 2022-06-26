@@ -313,8 +313,8 @@ Languages:
             owned_repos = viewer.get("repositories", {})
             issuesO = viewer.get("openIssues", {}).get("totalCount", 0)
             issuesC = viewer.get("closedIssues", {}).get("totalCount", 0)
-            self._issues = cast(int, issuesC) + cast(int, issuesO)
-            # self._prs = cast(int, viewer.get("pullRequests").get(0))
+            self._issues = issuesC + issuesO
+            self._prs = viewer.get("pullRequests", {}).get("totalCount", 0)
 
             repos = owned_repos.get("nodes", [])
             if not self._ignore_forked_repos:
@@ -413,6 +413,15 @@ Languages:
         if self._issues is None:
             await self.get_stats()
         return self._issues
+
+    @property
+    async def prs(self) -> int:
+        """
+        :return: number of prs created by the user
+        """
+        if self._prs is None:
+            await self.get_stats()
+        return self._prs
 
     @property
     async def total_contributions(self) -> int:
