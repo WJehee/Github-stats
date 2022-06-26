@@ -268,7 +268,8 @@ class Stats(object):
         self._total_contributions: Optional[int] = None
         self._languages: Optional[Dict[str, Any]] = None
         self._repos: Optional[Set[str]] = None
-        self._issues: int = 0
+        self._opened_issues: int = 0
+        self._closed_issues: int = 0
         self._prs: int = 0
 
     async def to_str(self) -> str:
@@ -311,9 +312,8 @@ Languages:
 
             contrib_repos = viewer.get("repositoriesContributedTo", {})
             owned_repos = viewer.get("repositories", {})
-            issuesO = viewer.get("openIssues", {}).get("totalCount", 0)
-            issuesC = viewer.get("closedIssues", {}).get("totalCount", 0)
-            self._issues = issuesC + issuesO
+            self._opened_issues = viewer.get("openIssues", {}).get("totalCount", 0)
+            self._closed_issues = viewer.get("closedIssues", {}).get("totalCount", 0)
             self._prs = viewer.get("pullRequests", {}).get("totalCount", 0)
 
             repos = owned_repos.get("nodes", [])
@@ -406,13 +406,13 @@ Languages:
         return self._repos
 
     @property
-    async def issues(self) -> int:
+    async def issues(self) -> Tuple[int, int]:
         """
-        :return: number of issues created by the user
+        :return: number of opened and closed issues by the user
         """
-        if self._issues is None:
+        if self._opened_issues is None:
             await self.get_stats()
-        return self._issues
+        return self._opened_issues, self._closed_issues
 
     @property
     async def prs(self) -> int:
