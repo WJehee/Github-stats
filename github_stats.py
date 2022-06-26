@@ -313,6 +313,7 @@ Languages:
             owned_repos = viewer.get("repositories", {})
             issuesO = viewer.get("openIssues", 0)
             issuesC = viewer.get("closedIssues", 0)
+            print(issuesC)
             self._issues = cast(int, issuesC) + cast(int, issuesO)
             # self._prs = cast(int, viewer.get("pullRequests").get(0))
 
