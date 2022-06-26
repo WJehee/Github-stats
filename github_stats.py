@@ -125,6 +125,15 @@ class Queries(object):
   viewer {{
     login,
     name,
+    pullRequests(first: 1) {{
+        totalCount
+    }}
+    openIssues: issues(states: OPEN) {{
+        totalCount
+    }}
+    closedIssues: issues(states: CLOSED) {{
+        totalCount
+    }}
     repositories(
         first: 100,
         orderBy: {{
@@ -259,6 +268,8 @@ class Stats(object):
         self._total_contributions: Optional[int] = None
         self._languages: Optional[Dict[str, Any]] = None
         self._repos: Optional[Set[str]] = None
+        self._issues: int = 0
+        self._prs: int = 0
 
     async def to_str(self) -> str:
         """
@@ -293,22 +304,17 @@ Languages:
             )
             raw_results = raw_results if raw_results is not None else {}
 
-            self._name = raw_results.get("data", {}).get("viewer", {}).get("name", None)
+            viewer = raw_results.get("data", {}).get("viewer", {})
+            self._name = viewer.get("name", None)
             if self._name is None:
-                self._name = (
-                    raw_results.get("data", {})
-                    .get("viewer", {})
-                    .get("login", "No Name")
-                )
+                self._name = viewer.get("login", "No Name")
 
-            contrib_repos = (
-                raw_results.get("data", {})
-                .get("viewer", {})
-                .get("repositoriesContributedTo", {})
-            )
-            owned_repos = (
-                raw_results.get("data", {}).get("viewer", {}).get("repositories", {})
-            )
+            contrib_repos = viewer.get("repositoriesContributedTo", {})
+            owned_repos = viewer.get("repositories", {})
+            issuesO = viewer.get("openIssues")
+            issuesC = viewer.get("closedIssues")
+            self._issues = cast(int, issuesC) + cast(int, issuesO)
+            self._prs = cast(int, viewer.get("pullRequests"))
 
             repos = owned_repos.get("nodes", [])
             if not self._ignore_forked_repos:
@@ -398,6 +404,15 @@ Languages:
         await self.get_stats()
         assert self._repos is not None
         return self._repos
+
+    @property
+    async def issues(self) -> int:
+        """
+        :return: number of issues created by the user
+        """
+        if self._issues is None:
+            await self.get_stats()
+        return self._issues
 
     @property
     async def total_contributions(self) -> int:
