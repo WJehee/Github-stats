@@ -268,6 +268,7 @@ class Stats(object):
         self._total_contributions: Optional[int] = None
         self._languages: Optional[Dict[str, Any]] = None
         self._repos: Optional[Set[str]] = None
+        self._lines_changed: Optional[Tuple[int, int]] = None
         self._opened_issues: int = 0
         self._closed_issues: int = 0
         self._prs: int = 0
@@ -450,6 +451,34 @@ Languages:
                 "totalContributions", 0
             )
         return cast(int, self._total_contributions)
+
+    @property
+    async def lines_changed(self) -> Tuple[int, int]:
+        """
+        :return: count of total lines added, removed, or modified by the user
+        """
+        if self._lines_changed is not None:
+            return self._lines_changed
+        additions = 0
+        deletions = 0
+        for repo in await self.repos:
+            r = await self.queries.query_rest(f"/repos/{repo}/stats/contributors")
+            for author_obj in r:
+                # Handle malformed response from the API by skipping this repo
+                if not isinstance(author_obj, dict) or not isinstance(
+                    author_obj.get("author", {}), dict
+                ):
+                    continue
+                author = author_obj.get("author", {}).get("login", "")
+                if author != self.username:
+                    continue
+
+                for week in author_obj.get("weeks", []):
+                    additions += week.get("a", 0)
+                    deletions += week.get("d", 0)
+
+        self._lines_changed = (additions, deletions)
+        return self._lines_changed
 
 ###############################################################################
 # Main Function
